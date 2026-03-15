@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # CORS
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+
+    # Environment: "development" | "production"
+    ENVIRONMENT: str = "development"
+
     # S3-compatible storage
     S3_ENDPOINT_URL: str = "http://localhost:9000"
     S3_ACCESS_KEY: str = "minioadmin"
