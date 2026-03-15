@@ -6,15 +6,23 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "ERP Intern Backend"
     API_V1_PREFIX: str = "/api/v1"
 
-    # Database
+    # Database — POSTGRES_* pour Docker local, DATABASE_URL injecté par Railway
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "erp_intern"
 
+    # Injecté automatiquement par Railway. Vide = on construit depuis POSTGRES_*.
+    DATABASE_URL: str = ""
+
     @property
-    def DATABASE_URL(self) -> str:
+    def ASYNC_DATABASE_URL(self) -> str:
+        if self.DATABASE_URL:
+            url = self.DATABASE_URL
+            if url.startswith("postgresql://") and "+asyncpg" not in url:
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return url
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -40,7 +48,7 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY: str = "minioadmin"
     S3_SECRET_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "erp-intern"
-    S3_REGION: str = "us-east-1"
+    S3_REGION: str = "auto"
     S3_PRESIGN_EXPIRATION: int = 3600
 
     model_config = {"env_file": ".env", "extra": "ignore"}
