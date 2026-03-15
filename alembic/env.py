@@ -17,9 +17,12 @@ from app.models.notification import Notification  # noqa: F401
 config = context.config
 
 # Override sqlalchemy.url with DATABASE_URL from environment
-database_url = os.getenv("DATABASE_URL")
+database_url = os.getenv("DATABASE_URL", "")
+# Railway injects postgresql://, Alembic async requiert postgresql+asyncpg://
+if database_url and database_url.startswith("postgresql://") and "+asyncpg" not in database_url:
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+    config.set_main_option("sqlalchemy.url", database_url)  # pass URL to Alembic
 
 
 if config.config_file_name is not None:
