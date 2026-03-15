@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -17,7 +18,10 @@ from app.models.file import File  # noqa: F401
 from app.models.activity import ActivityLog  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
+
+_INSECURE_JWT_DEFAULTS = {"change-me-in-production", "super-secret-change-me-in-production"}
 
 
 async def seed_admin():
@@ -44,17 +48,29 @@ async def _attendance_checker():
     from app.db.session import async_session_factory
     from app.services.attendance_service import AttendanceService
     while True:
-        await asyncio.sleep(60)  # Vérifie toutes les minutes
+        await asyncio.sleep(60)
         try:
             async with async_session_factory() as db:
                 await AttendanceService.auto_close_expired_sessions(db)
                 await db.commit()
         except Exception:
-            pass  # Ne pas crasher l'app
+            logger.exception("Error in attendance auto-checker")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # JWT secret guard
+    if settings.JWT_SECRET_KEY in _INSECURE_JWT_DEFAULTS:
+        if settings.ENVIRONMENT == "production":
+            raise RuntimeError(
+                "JWT_SECRET_KEY must be changed before running in production. "
+                "Set a strong random value in your .env file."
+            )
+        else:
+            logger.warning(
+                "JWT_SECRET_KEY is using an insecure default value. "
+                "Change it before deploying to production."
+            )
     await seed_admin()
     checker = asyncio.create_task(_attendance_checker())
     yield
@@ -70,18 +86,34 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# ── Security headers middleware ──
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 # ── CORS middleware ──
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En production, listez les domaines autorisés
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global exception handler
+
+# ── Global exception handler ──
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(
+        "Unhandled exception on %s %s", request.method, request.url.path
+    )
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
