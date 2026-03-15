@@ -12,7 +12,7 @@ from app.services.user_service import UserService
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     payload: UserCreate,
     db: AsyncSession = Depends(get_db),
@@ -32,7 +32,7 @@ async def create_user(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.get("/", response_model=UserListOut)
+@router.get("", response_model=UserListOut)
 async def list_users(
     role: UserRole | None = Query(None),
     skip: int = Query(0, ge=0),
