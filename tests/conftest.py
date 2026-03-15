@@ -148,6 +148,18 @@ app.dependency_overrides[get_db] = _override_get_db
 
 
 # ---------------------------------------------------------------------------
+# Reset rate limiter storage before each test so tests don't interfere
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Clear slowapi in-memory counters between tests."""
+    from app.core.limiter import limiter
+    if hasattr(limiter, "_storage") and hasattr(limiter._storage, "reset"):
+        limiter._storage.reset()
+    yield
+
+
+# ---------------------------------------------------------------------------
 # Async HTTP client (uses ASGI transport – no real server needed)
 # ---------------------------------------------------------------------------
 @pytest_asyncio.fixture

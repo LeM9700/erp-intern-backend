@@ -9,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.api import auth, attendance, tasks, files, activity, users, notifications, dashboard
 from app.core.security import hash_password
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.core.limiter import limiter
 
 # Import all models so Alembic can detect them
 from app.models.user import User  # noqa: F401
@@ -85,6 +88,8 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     lifespan=lifespan,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # ── Security headers middleware ──

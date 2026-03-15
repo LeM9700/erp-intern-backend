@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # Environment: "development" | "production"
     ENVIRONMENT: str = "development"
 
+    # Rate limiting
+    RATE_LIMIT_LOGIN: str = "5/minute"
+
     # S3-compatible storage
     S3_ENDPOINT_URL: str = "http://localhost:9000"
     S3_ACCESS_KEY: str = "minioadmin"

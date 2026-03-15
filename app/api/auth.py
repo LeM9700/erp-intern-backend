@@ -1,17 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
+from app.core.config import get_settings
 from app.core.dependencies import get_current_user
+from app.core.limiter import limiter
+from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse, ChangePasswordRequest
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+settings = get_settings()
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit(lambda: settings.RATE_LIMIT_LOGIN)
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     try:
         return await AuthService.authenticate(db, body.email, body.password)
     except ValueError as e:
