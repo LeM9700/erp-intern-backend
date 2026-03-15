@@ -7,7 +7,7 @@ from app.models.user import UserRole
 
 # ── Input ──
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
