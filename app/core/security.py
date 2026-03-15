@@ -38,3 +38,9 @@ def decode_token(token: str) -> dict[str, Any]:
         return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except JWTError:
         raise ValueError("Invalid or expired token")
+
+
+def validate_password_strength(password: str) -> None:
+    """Raises ValueError if password doesn't meet minimum requirements."""
+    if len(password) < 8:
+        raise ValueError("Le mot de passe doit contenir au moins 8 caractères")

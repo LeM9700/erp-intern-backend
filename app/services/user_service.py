@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole
-from app.core.security import hash_password
+from app.core.security import hash_password, validate_password_strength
 
 
 class UserService:
@@ -21,6 +21,8 @@ class UserService:
         result = await db.execute(select(User).where(User.email == email))
         if result.scalar_one_or_none():
             raise ValueError("Un utilisateur avec cet email existe déjà")
+
+        validate_password_strength(password)
 
         user = User(
             email=email,

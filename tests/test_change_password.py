@@ -46,7 +46,7 @@ class TestChangePassword:
             headers=intern_headers,
         )
         assert resp.status_code == 400
-        assert "6" in resp.json()["detail"]
+        assert "8" in resp.json()["detail"]
 
     async def test_change_password_unauthenticated(self, client: AsyncClient):
         resp = await client.put(
