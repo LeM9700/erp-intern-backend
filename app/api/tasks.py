@@ -35,6 +35,15 @@ async def update_task(
     return await TaskService.update_task(db, task_id, body)
 
 
+@router.delete("/{task_id}", status_code=204)
+async def delete_task(
+    task_id: str,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    await TaskService.delete_task(db, task_id)
+
+
 @router.get("/admin", response_model=TaskListOut)
 async def list_admin_tasks(
     page: int = Query(1, ge=1),
