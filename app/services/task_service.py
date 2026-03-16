@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, UploadFile, status
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -378,6 +378,19 @@ class TaskService:
             .limit(size)
         )
         return list(result.scalars().all()), total
+
+    @staticmethod
+    async def delete_task(db: AsyncSession, task_id: uuid.UUID) -> None:
+        result = await db.execute(select(Task).where(Task.id == task_id))
+        task = result.scalar_one_or_none()
+        if not task:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+        for model in (TaskProof, TaskReview, TaskComment):
+            await db.execute(delete(model).where(model.task_id == task.id))
+
+        await db.delete(task)
+        await db.flush()
 
     @staticmethod
     async def delete_comment(
