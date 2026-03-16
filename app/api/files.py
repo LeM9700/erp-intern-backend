@@ -1,5 +1,8 @@
 import uuid
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,6 +73,28 @@ async def presign(
         return await FileService.presign(db, current_user.id, body.filename, body.content_type)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{file_id}/view")
+async def view_file(
+    file_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Serve a file by its ID. Returns the raw file content."""
+    db_file = await FileService.get_file(db, file_id)
+    if not db_file:
+        raise HTTPException(status_code=404, detail="Fichier introuvable")
+
+    file_path = Path(db_file.stored_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Fichier introuvable sur le stockage")
+
+    return FileResponse(
+        path=file_path,
+        media_type=db_file.mime_type,
+        filename=db_file.original_filename,
+    )
 
 
 @router.post("/confirm")
