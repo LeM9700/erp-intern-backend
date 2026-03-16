@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     # Rate limiting
     RATE_LIMIT_LOGIN: str = "5/minute"
 
-    # S3-compatible storage
+    # S3-compatible storage (Cloudflare R2 en production, MinIO en local)
+    USE_S3: bool = False
     S3_ENDPOINT_URL: str = "http://localhost:9000"
     S3_ACCESS_KEY: str = "minioadmin"
     S3_SECRET_KEY: str = "minioadmin"
