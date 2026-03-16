@@ -60,3 +60,27 @@ class AttendanceSummaryOut(BaseModel):
     total_hours: float
     total_sessions: int
     sessions: list[AttendanceSessionSummaryItem]
+
+
+# ── Admin ──
+class AdminAttendanceSessionOut(BaseModel):
+    id: UUID
+    user_id: UUID
+    user_full_name: str
+    status: AttendanceStatus
+    clock_in: datetime
+    clock_out: Optional[datetime] = None
+    duration_minutes: Optional[float] = None
+    note: Optional[str] = None
+    clock_in_photo_id: UUID
+    clock_out_photo_id: Optional[UUID] = None
+
+    model_config = {"from_attributes": True}
+
+
+class AdminAttendanceSessionListOut(BaseModel):
+    items: list[AdminAttendanceSessionOut]
+    total: int
+    page: int
+    size: int
+    pages: int

@@ -328,3 +328,50 @@ class AttendanceService:
             .limit(size)
         )
         return list(result.scalars().all()), total
+
+    @staticmethod
+    async def get_user_sessions_admin(
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        page: int = 1,
+        size: int = 20,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> tuple[list[AttendanceSession], int]:
+        """Liste paginée de toutes les sessions d'un stagiaire (usage admin)."""
+        from sqlalchemy import func as sa_func
+
+        conditions = [AttendanceSession.user_id == user_id]
+        if date_from:
+            conditions.append(AttendanceSession.created_at >= date_from)
+        if date_to:
+            conditions.append(AttendanceSession.created_at <= date_to)
+
+        total = (await db.execute(
+            select(sa_func.count()).select_from(AttendanceSession).where(*conditions)
+        )).scalar() or 0
+
+        result = await db.execute(
+            select(AttendanceSession)
+            .options(selectinload(AttendanceSession.user))
+            .where(*conditions)
+            .order_by(AttendanceSession.created_at.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+        return list(result.scalars().all()), total
+
+    @staticmethod
+    async def get_session_by_id(
+        db: AsyncSession, session_id: uuid.UUID, user_id: uuid.UUID
+    ) -> AttendanceSession | None:
+        """Récupère une session spécifique appartenant à un stagiaire donné (usage admin)."""
+        result = await db.execute(
+            select(AttendanceSession)
+            .options(selectinload(AttendanceSession.user))
+            .where(
+                AttendanceSession.id == session_id,
+                AttendanceSession.user_id == user_id,
+            )
+        )
+        return result.scalar_one_or_none()

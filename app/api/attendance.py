@@ -13,6 +13,8 @@ from app.schemas.attendance import (
     LiveAttendanceOut,
     AttendanceSummaryOut,
     AttendanceSessionSummaryItem,
+    AdminAttendanceSessionOut,
+    AdminAttendanceSessionListOut,
     ClockOutIn,
 )
 from app.services.attendance_service import AttendanceService, _ensure_utc
@@ -108,6 +110,68 @@ async def get_my_sessions(
     return AttendanceSessionListOut(
         items=items,
         **paginate_meta(total, page, size).model_dump(),
+    )
+
+
+@router.get("/admin/sessions/{user_id}", response_model=AdminAttendanceSessionListOut)
+async def get_intern_sessions(
+    user_id: uuid.UUID,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    date_from: datetime | None = Query(None, alias="from", description="Début (ISO 8601)"),
+    date_to: datetime | None = Query(None, alias="to", description="Fin (ISO 8601)"),
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Liste paginée de tous les pointages d'un stagiaire avec compte-rendus."""
+    from sqlalchemy import select as sa_select
+    from app.models.user import User as UserModel
+    user_exists = (await db.execute(
+        sa_select(UserModel.id).where(UserModel.id == user_id)
+    )).scalar_one_or_none()
+    if not user_exists:
+        raise HTTPException(status_code=404, detail="Stagiaire introuvable")
+
+    sessions, total = await AttendanceService.get_user_sessions_admin(
+        db, user_id, page=page, size=size, date_from=date_from, date_to=date_to
+    )
+    return AdminAttendanceSessionListOut(
+        items=[_build_admin_session_out(s) for s in sessions],
+        **paginate_meta(total, page, size).model_dump(),
+    )
+
+
+@router.get("/admin/sessions/{user_id}/{session_id}", response_model=AdminAttendanceSessionOut)
+async def get_intern_session_detail(
+    user_id: uuid.UUID,
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Détail d'un pointage : heure d'entrée/sortie, durée, compte-rendu."""
+    session = await AttendanceService.get_session_by_id(db, session_id, user_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session introuvable")
+    return _build_admin_session_out(session)
+
+
+def _build_admin_session_out(s) -> AdminAttendanceSessionOut:
+    duration = None
+    if s.ended_at:
+        duration = round(
+            (_ensure_utc(s.ended_at) - _ensure_utc(s.created_at)).total_seconds() / 60, 1
+        )
+    return AdminAttendanceSessionOut(
+        id=s.id,
+        user_id=s.user_id,
+        user_full_name=s.user.full_name,
+        status=s.status,
+        clock_in=s.created_at,
+        clock_out=s.ended_at,
+        duration_minutes=duration,
+        note=s.note,
+        clock_in_photo_id=s.clock_in_photo_id,
+        clock_out_photo_id=s.clock_out_photo_id,
     )
 
 
