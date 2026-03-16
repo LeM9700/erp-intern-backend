@@ -3,10 +3,13 @@ from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.file import File
 from app.models.activity import ActivityAction
 from app.services.storage import StorageService
 from app.services.activity_service import ActivityLogService
+
+settings = get_settings()
 
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
@@ -26,11 +29,15 @@ class FileService:
         if file.content_type not in ALLOWED_IMAGE_TYPES:
             raise ValueError(f"Invalid file type: {file.content_type}. Allowed: {', '.join(ALLOWED_IMAGE_TYPES)}")
 
-        meta = await StorageService.save_upload_locally(file, user_id, subfolder)
-
-        if meta["size_bytes"] > MAX_FILE_SIZE:
-            StorageService.delete_local_file(meta["stored_path"])
-            raise ValueError(f"File too large ({meta['size_bytes']} bytes). Max: {MAX_FILE_SIZE} bytes.")
+        if settings.USE_S3:
+            meta = await StorageService.upload_to_s3(file, user_id, subfolder)
+            if meta["size_bytes"] > MAX_FILE_SIZE:
+                raise ValueError(f"File too large ({meta['size_bytes']} bytes). Max: {MAX_FILE_SIZE} bytes.")
+        else:
+            meta = await StorageService.save_upload_locally(file, user_id, subfolder)
+            if meta["size_bytes"] > MAX_FILE_SIZE:
+                StorageService.delete_local_file(meta["stored_path"])
+                raise ValueError(f"File too large ({meta['size_bytes']} bytes). Max: {MAX_FILE_SIZE} bytes.")
 
         db_file = File(
             original_filename=meta["original_filename"],

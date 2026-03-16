@@ -2,14 +2,18 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.dependencies import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.services.file_service import FileService
+from app.services.storage import StorageService
+
+settings = get_settings()
 
 router = APIRouter(prefix="/files", tags=["Files"])
 
@@ -85,6 +89,10 @@ async def view_file(
     db_file = await FileService.get_file(db, file_id)
     if not db_file:
         raise HTTPException(status_code=404, detail="Fichier introuvable")
+
+    if settings.USE_S3:
+        url = await StorageService.generate_presigned_download_url(db_file.stored_path)
+        return RedirectResponse(url=url, status_code=307)
 
     file_path = Path(db_file.stored_path)
     if not file_path.exists():
