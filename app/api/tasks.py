@@ -5,9 +5,10 @@ from app.core.dependencies import get_current_user, require_admin, require_inter
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.pagination import paginate_meta
+from app.models.task import TaskStatus
 from app.schemas.task import (
     TaskCommentCreate, TaskCommentListOut, TaskCommentOut,
-    TaskCreate, TaskListOut, TaskOut, TaskUpdate,
+    TaskCreate, TaskListOut, TaskOut, TaskSubmissionListOut, TaskUpdate,
 )
 from app.services.task_service import TaskService
 
@@ -42,6 +43,21 @@ async def delete_task(
     db: AsyncSession = Depends(get_db),
 ):
     await TaskService.delete_task(db, task_id)
+
+
+@router.get("/submissions", response_model=TaskSubmissionListOut)
+async def list_submissions(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    status: TaskStatus | None = Query(None),
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    items, total = await TaskService.list_submissions(db, page=page, size=size, status_filter=status)
+    return TaskSubmissionListOut(
+        items=items,
+        **paginate_meta(total, page, size).model_dump(),
+    )
 
 
 @router.get("/admin", response_model=TaskListOut)
@@ -122,6 +138,21 @@ async def list_comments(
     comments, total = await TaskService.list_comments(db, task_id, page=page, size=size)
     return TaskCommentListOut(
         items=comments,
+        **paginate_meta(total, page, size).model_dump(),
+    )
+
+
+@router.get("/{task_id}/submissions", response_model=TaskSubmissionListOut)
+async def list_task_submissions(
+    task_id: str,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    items, total = await TaskService.list_task_submissions(db, task_id, page=page, size=size)
+    return TaskSubmissionListOut(
+        items=items,
         **paginate_meta(total, page, size).model_dump(),
     )
 

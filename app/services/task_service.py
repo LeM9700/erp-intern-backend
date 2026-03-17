@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 from app.models.activity import ActivityAction
 from app.models.file import File
@@ -378,6 +378,118 @@ class TaskService:
             .limit(size)
         )
         return list(result.scalars().all()), total
+
+    @staticmethod
+    async def list_submissions(
+        db: AsyncSession,
+        page: int = 1,
+        size: int = 20,
+        status_filter: TaskStatus | None = None,
+    ) -> tuple[list[dict], int]:
+        """Liste toutes les soumissions (TaskProof) enrichies avec infos tâche et stagiaire."""
+        UserAlias = aliased(User)
+
+        base_stmt = (
+            select(
+                TaskProof.id,
+                TaskProof.task_id,
+                TaskProof.file_id,
+                TaskProof.proof_url,
+                TaskProof.note,
+                TaskProof.created_at,
+                Task.title.label("task_title"),
+                Task.status.label("task_status"),
+                Task.assigned_to.label("intern_id"),
+                Task.submitted_at,
+                UserAlias.full_name.label("intern_full_name"),
+            )
+            .join(Task, TaskProof.task_id == Task.id)
+            .outerjoin(UserAlias, Task.assigned_to == UserAlias.id)
+        )
+
+        if status_filter is not None:
+            base_stmt = base_stmt.where(Task.status == status_filter)
+
+        total = (await db.execute(
+            select(func.count()).select_from(base_stmt.subquery())
+        )).scalar() or 0
+
+        rows = (await db.execute(
+            base_stmt
+            .order_by(TaskProof.created_at.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )).all()
+
+        items = [
+            {
+                "id": row.id,
+                "task_id": row.task_id,
+                "task_title": row.task_title,
+                "task_status": row.task_status,
+                "intern_id": row.intern_id,
+                "intern_full_name": row.intern_full_name,
+                "note": row.note,
+                "file_id": row.file_id,
+                "proof_url": row.proof_url,
+                "submitted_at": row.submitted_at,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ]
+        return items, total
+
+    @staticmethod
+    async def list_task_submissions(
+        db: AsyncSession,
+        task_id: uuid.UUID,
+        page: int = 1,
+        size: int = 20,
+    ) -> tuple[list[dict], int]:
+        """Liste les soumissions (TaskProof) d'une tâche spécifique."""
+        task = (await db.execute(
+            select(Task).where(Task.id == task_id)
+        )).scalar_one_or_none()
+        if not task:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+        intern_full_name: str | None = None
+        if task.assigned_to:
+            intern = (await db.execute(
+                select(User.full_name).where(User.id == task.assigned_to)
+            )).scalar_one_or_none()
+            intern_full_name = intern
+
+        base = TaskProof.task_id == task_id
+        total = (await db.execute(
+            select(func.count()).select_from(TaskProof).where(base)
+        )).scalar() or 0
+
+        proofs = (await db.execute(
+            select(TaskProof)
+            .where(base)
+            .order_by(TaskProof.created_at.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+        )).scalars().all()
+
+        items = [
+            {
+                "id": proof.id,
+                "task_id": proof.task_id,
+                "task_title": task.title,
+                "task_status": task.status,
+                "intern_id": task.assigned_to,
+                "intern_full_name": intern_full_name,
+                "note": proof.note,
+                "file_id": proof.file_id,
+                "proof_url": proof.proof_url,
+                "submitted_at": task.submitted_at,
+                "created_at": proof.created_at,
+            }
+            for proof in proofs
+        ]
+        return items, total
 
     @staticmethod
     async def delete_task(db: AsyncSession, task_id: uuid.UUID) -> None:

@@ -84,3 +84,26 @@ class TaskCommentListOut(BaseModel):
     page: int
     size: int
     pages: int
+
+
+# ── Task Submissions ──
+class TaskSubmissionOut(BaseModel):
+    id: UUID
+    task_id: UUID
+    task_title: str
+    task_status: TaskStatus
+    intern_id: Optional[UUID]
+    intern_full_name: Optional[str]
+    note: str
+    file_id: Optional[UUID]
+    proof_url: Optional[str]
+    submitted_at: Optional[datetime]
+    created_at: datetime
+
+
+class TaskSubmissionListOut(BaseModel):
+    items: list[TaskSubmissionOut]
+    total: int
+    page: int
+    size: int
+    pages: int
