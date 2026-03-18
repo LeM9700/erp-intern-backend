@@ -115,14 +115,19 @@ class TaskService:
 
     @staticmethod
     async def list_admin_tasks(
-        db: AsyncSession, page: int = 1, size: int = 20
+        db: AsyncSession,
+        page: int = 1,
+        size: int = 20,
+        status_filter: TaskStatus | None = None,
     ) -> tuple[list[Task], int]:
+        where = [Task.status == status_filter] if status_filter is not None else []
         total = (await db.execute(
-            select(func.count()).select_from(Task)
+            select(func.count()).select_from(Task).where(*where)
         )).scalar() or 0
         result = await db.execute(
             select(Task)
             .options(selectinload(Task.proofs), selectinload(Task.reviews))
+            .where(*where)
             .order_by(Task.created_at.desc())
             .offset((page - 1) * size)
             .limit(size)
@@ -131,16 +136,22 @@ class TaskService:
 
     @staticmethod
     async def list_intern_tasks(
-        db: AsyncSession, user_id: uuid.UUID, page: int = 1, size: int = 20
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        page: int = 1,
+        size: int = 20,
+        status_filter: TaskStatus | None = None,
     ) -> tuple[list[Task], int]:
-        base = Task.assigned_to == user_id
+        where = [Task.assigned_to == user_id]
+        if status_filter is not None:
+            where.append(Task.status == status_filter)
         total = (await db.execute(
-            select(func.count()).select_from(Task).where(base)
+            select(func.count()).select_from(Task).where(*where)
         )).scalar() or 0
         result = await db.execute(
             select(Task)
             .options(selectinload(Task.proofs), selectinload(Task.reviews))
-            .where(base)
+            .where(*where)
             .order_by(Task.created_at.desc())
             .offset((page - 1) * size)
             .limit(size)

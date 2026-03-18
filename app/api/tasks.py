@@ -64,10 +64,11 @@ async def list_submissions(
 async def list_admin_tasks(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    status: TaskStatus | None = Query(None),
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    tasks, total = await TaskService.list_admin_tasks(db, page=page, size=size)
+    tasks, total = await TaskService.list_admin_tasks(db, page=page, size=size, status_filter=status)
     return TaskListOut(
         items=tasks,
         **paginate_meta(total, page, size).model_dump(),
@@ -80,10 +81,11 @@ async def list_admin_tasks(
 async def list_my_tasks(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    status: TaskStatus | None = Query(None),
     intern: User = Depends(require_intern),
     db: AsyncSession = Depends(get_db),
 ):
-    tasks, total = await TaskService.list_intern_tasks(db, intern.id, page=page, size=size)
+    tasks, total = await TaskService.list_intern_tasks(db, intern.id, page=page, size=size, status_filter=status)
     return TaskListOut(
         items=tasks,
         **paginate_meta(total, page, size).model_dump(),
