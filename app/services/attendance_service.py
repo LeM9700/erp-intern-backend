@@ -21,6 +21,7 @@ from app.models.user import User, UserRole
 from app.models.activity import ActivityAction
 from app.services.activity_service import ActivityLogService
 from app.services.file_service import FileService
+from app.utils.timezone import convert_to_tz
 
 MAX_SESSION_DURATION = timedelta(hours=4, minutes=30)   # Règle 1
 MIN_PAUSE_BEFORE_RECLOCKING = timedelta(minutes=30)     # Règle 2
@@ -253,7 +254,7 @@ class AttendanceService:
                     title="Session auto-fermée",
                     message=(
                         f"La session de {session.user.full_name} a été fermée automatiquement "
-                        f"après 4h30 de pointage (entrée : {session.created_at.strftime('%H:%M')})."
+                        f"après 4h30 de pointage (entrée : {convert_to_tz(session.created_at, session.user.timezone).strftime('%H:%M')})."
                     ),
                 ))
 

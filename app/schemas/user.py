@@ -15,6 +15,7 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
     email: EmailStr | None = None
     is_active: bool | None = None
+    timezone: str | None = None
 
 
 class UserOut(BaseModel):
@@ -23,6 +24,7 @@ class UserOut(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    timezone: str
     created_at: datetime
     updated_at: datetime
 
