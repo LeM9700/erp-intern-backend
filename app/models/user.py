@@ -20,6 +20,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False, default=UserRole.INTERN)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
 
     attendance_sessions = relationship("AttendanceSession", back_populates="user", lazy="selectin")
     tasks_assigned = relationship("Task", back_populates="assigned_to_user", foreign_keys="Task.assigned_to", lazy="selectin")
